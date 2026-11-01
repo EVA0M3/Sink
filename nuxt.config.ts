@@ -13,11 +13,7 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     'shadcn-nuxt',
   ],
-  devtools: { enabled: true },
   css: ['@/assets/css/tailwind.css'],
-  colorMode: {
-    classSuffix: '',
-  },
   runtimeConfig: {
     siteToken: process.env.NUXT_SITE_TOKEN || randomBytes(32).toString('base64url'),
     cfAccessTeamDomain: '',
@@ -26,6 +22,7 @@ export default defineNuxtConfig({
     linkCacheTtl: 60,
     redirectWithQuery: false,
     redirectNoStore: false,
+    // Deprecated NUXT_HOME_URL alias; kept so pre-public deployments keep redirecting `/`.
     homeURL: '',
     cfAccountId: '',
     cfApiToken: '',
@@ -38,6 +35,7 @@ export default defineNuxtConfig({
     listQueryLimit: 500,
     disableBotAccessLog: false,
     disableAutoBackup: false,
+    expiredLinkRetentionDays: '',
     notFoundRedirect: '',
     safeBrowsingDoh: '', // Set to DoH URL to enable auto-detection, e.g. https://family.cloudflare-dns.com/dns-query
     webhookUrl: '',
@@ -46,6 +44,9 @@ export default defineNuxtConfig({
       previewMode: '',
       slugDefaultLength: '6',
       kvBatchLimit: '50',
+      maxUrlLength: '16384',
+      homeURL: process.env.NUXT_HOME_URL || '',
+      linkProxyEnabled: false,
     },
   },
   routeRules: {
@@ -106,9 +107,6 @@ export default defineNuxtConfig({
     plugins: [
       tailwindcss(),
     ],
-    worker: {
-      format: 'es',
-    },
     optimizeDeps: {
       include: [
         '@internationalized/date',
@@ -158,14 +156,6 @@ export default defineNuxtConfig({
     defaultLocale: 'en-US',
   },
   shadcn: {
-    /**
-     * Prefix for all the imported component
-     */
     prefix: '',
-    /**
-     * Directory that the component lives in.
-     * @default "./components/ui"
-     */
-    componentDir: './app/components/ui',
   },
 })

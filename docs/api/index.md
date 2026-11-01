@@ -23,7 +23,7 @@ Send your site password in the `Authorization` header:
 Authorization: Bearer YOUR_SITE_TOKEN
 ```
 
-(`Bearer` means “here is the token”.) It must match `NUXT_SITE_TOKEN` exactly (at least 8 characters). With [Cloudflare Access](/configuration/cloudflare-access) enabled, browsers can also authenticate with a verified Access login.
+(`Bearer` means “here is the token”.) It must match `NUXT_SITE_TOKEN` exactly (at least 8 characters). With [Cloudflare Access](/configuration/cloudflare-access) enabled, browsers can also authenticate with a verified Access login. The [MCP endpoint](/integrations/#mcp-server) at `/api/mcp` uses the same token.
 
 ## CORS
 
@@ -40,7 +40,7 @@ Until you open **Dashboard → Links** once after deploy, most `/api/link/**` ca
 - `check` probes target URLs from the server
 - `verify` checks how you are authenticated
 - `location` returns approximate coordinates when Cloudflare provides them
-- Image upload needs R2 (JPEG/PNG/WebP/GIF, max 5 MB)
+- Image upload: `multipart/form-data` upload requiring both `file` and target link `slug`; requires R2 (JPEG/PNG/WebP/GIF, max 5 MB)
 
 ## Endpoint groups
 
@@ -54,3 +54,4 @@ Use the OpenAPI UI for full request/response details.
 | AI            | `/api/link/ai`, `/api/link/og-ai` — [Workers AI](/features/ai)                               |
 | Analytics     | `/api/stats/**`, `/api/logs/**` — [Analytics](/features/analytics)                           |
 | Utilities     | `/api/verify`, `/api/location`, `/api/upload/image`, `/api/backup`                           |
+| MCP           | `/api/mcp` — [MCP Server](/integrations/#mcp-server)                                         |

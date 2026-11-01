@@ -24,6 +24,7 @@ export interface ListLinksOptions {
   sort?: LinkSortBy
   tag?: string
   status?: LinkStatus
+  backfillExpiration?: boolean
 }
 
 export interface ListLinksResult {
@@ -100,6 +101,7 @@ function rowToLink(row: LinkRow): Link {
     'google',
     'cloaking',
     'redirectWithQuery',
+    'proxy',
     'password',
     'unsafe',
     'geo',
@@ -149,6 +151,7 @@ export function buildD1LinkValues(event: H3Event, link: Link, effectiveExpiresAt
     google: link.google ?? null,
     cloaking: link.cloaking ?? null,
     redirectWithQuery: link.redirectWithQuery ?? null,
+    proxy: link.proxy ?? null,
     password: link.password ?? null,
     unsafe: link.unsafe ?? null,
     geo: link.geo ?? null,
@@ -354,6 +357,10 @@ export async function d1ListLinks(event: H3Event, options: ListLinksOptions): Pr
   const rows = await db.select().from(links).where(and(statusCondition(status), tagCondition, cursorCondition)).orderBy(...order).limit(options.limit + 1)
   const hasMore = rows.length > options.limit
   const page = hasMore ? rows.slice(0, options.limit) : rows
+  if (options.backfillExpiration) {
+    for (const row of page)
+      row.expiration ??= row.effectiveExpiresAt
+  }
   const last = page.at(-1)
   return {
     links: await rowsToLinks(event, page),

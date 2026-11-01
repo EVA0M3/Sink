@@ -33,7 +33,7 @@ description: Sink 支持的全部环境变量——做什么、填在哪、什�
 
 **绑定** = 把 Cloudflare 产品用固定名称接到 Sink。
 
-| 绑定        | 是否必需 | 白话说明                                                                                           |
+| 绑定        | 是否必需 | 说明                                                                                               |
 | ----------- | -------- | -------------------------------------------------------------------------------------------------- |
 | `DB`        | 必需     | D1 数据库 — 保存链接                                                                               |
 | `KV`        | 必需     | 加速跳转的缓存（+ 存储就绪标记）                                                                   |
@@ -47,7 +47,7 @@ description: Sink 支持的全部环境变量——做什么、填在哪、什�
 ## 必须配置
 
 ::: warning `NUXT_SITE_TOKEN`
-请自己设置。这是**仪表盘登录密码**，也是 **API 密码**。至少 8 个字符，越长越好。保持稳定。
+请自己设置。这是**仪表盘登录密码**，也是 **API 密码**。至少 8 个字符且不能包含空白字符，越长越好。保持稳定。
 
 如果留空，Sink 可能在构建时随机生成密码，下次部署可能变化。
 :::
@@ -71,11 +71,20 @@ description: Sink 支持的全部环境变量——做什么、填在哪、什�
 
 Workers 要在 Builds 和运行时填相同值。Pages 只填一次，然后重新部署。
 
-| 变量                              | 默认 | 用途                                 |
-| --------------------------------- | ---- | ------------------------------------ |
-| `NUXT_PUBLIC_PREVIEW_MODE`        | 空   | `true` = 演示模式（链接只活 5 分钟） |
-| `NUXT_PUBLIC_SLUG_DEFAULT_LENGTH` | `6`  | 自动生成短链码的长度                 |
-| `NUXT_PUBLIC_KV_BATCH_LIMIT`      | `50` | 导出每页条数；导入每次最多一半       |
+| 变量                              | 默认    | 用途                                                                |
+| --------------------------------- | ------- | ------------------------------------------------------------------- |
+| `NUXT_PUBLIC_PREVIEW_MODE`        | 空      | `true` = 演示模式（链接只活 5 分钟）                                |
+| `NUXT_PUBLIC_SLUG_DEFAULT_LENGTH` | `6`     | 自动生成短链码的长度                                                |
+| `NUXT_PUBLIC_KV_BATCH_LIMIT`      | `50`    | 导出每页条数；导入每次最多一半                                      |
+| `NUXT_PUBLIC_MAX_URL_LENGTH`      | `16384` | 目标 URL 最大字符数（256-24000）                                    |
+| `NUXT_PUBLIC_HOME_URL`            | 空      | 非空则把 `/` 重定向到该 URL；空则显示 Sink 首页                     |
+| `NUXT_PUBLIC_LINK_PROXY_ENABLED`  | `false` | `true` 时允许链接开启反向代理模式；关闭时存量代理链接回退为普通跳转 |
+
+`NUXT_PUBLIC_*` 的值会打进构建出的页面、同时也在运行时读取，所以修改后需要重新构建，客户端才能拿到新值。
+
+`NUXT_HOME_URL` 是 `NUXT_PUBLIC_HOME_URL` 的旧名称，目前仍然有效，建议下次调整配置时改成新名称。
+
+点击统计会把目标 URL 写入 Workers Analytics Engine，而它限制每个数据点的全部 blob 合计不超过 16 KB。当 URL 加上其他点击字段（User-Agent、Referer 等）超过这个大小时（URL 接近默认上限 16384 字符时可能发生），跳转仍然正常，但这次点击不会出现在统计里。如果统计完整比支持超长 URL 更重要，请调低 `NUXT_PUBLIC_MAX_URL_LENGTH`。
 
 ## 可选配置
 
@@ -92,7 +101,6 @@ Workers 要在 Builds 和运行时填相同值。Pages 只填一次，然后重�
 
 | 变量                                                | 用途                                                           |
 | --------------------------------------------------- | -------------------------------------------------------------- |
-| `NUXT_HOME_URL`                                     | 非空则把 `/` 重定向到该 URL；空则显示 Sink 首页                |
 | `NUXT_NOT_FOUND_REDIRECT`                           | 未知短链码跳到哪里（**始终 HTTP 302**）                        |
 | `NUXT_CF_ACCESS_TEAM_DOMAIN` + `NUXT_CF_ACCESS_AUD` | 两个都设 → 启用 [Cloudflare Access](./cloudflare-access)       |
 | `NUXT_SAFE_BROWSING_DOH`                            | 用于检查不安全域名的 DNS-over-HTTPS 地址（未设置 `unsafe` 时） |
@@ -100,6 +108,12 @@ Workers 要在 Builds 和运行时填相同值。Pages 只填一次，然后重�
 | `NUXT_WEBHOOK_SECRET`                               | 可选签名密钥，以 `whsec_` 开头                                 |
 
 安全浏览示例：Cloudflare Family DNS `https://family.cloudflare-dns.com/dns-query`。另见[链接功能](/zh-CN/features/links)。
+
+### Expired link retention
+
+Set runtime variable `NUXT_EXPIRED_LINK_RETENTION_DAYS=30` to permanently delete D1 links once they have been expired for 30 days. Unset or empty disables cleanup. Only non-negative integers are accepted; `0` deletes expired links on the next run. Invalid values skip cleanup and log a warning.
+
+Cleanup requires a completed KV-to-D1 migration and Workers cron (daily at **00:00 UTC** in this repository). It runs independently of `NUXT_DISABLE_AUTO_BACKUP` and does not require R2. Pages does not run automatic cleanup. Existing R2 backups are retained.
 
 ## 高级默认值（通常不用改）
 

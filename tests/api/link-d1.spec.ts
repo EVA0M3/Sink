@@ -292,6 +292,22 @@ describe('d1 link integration', () => {
     expect(await query.json()).toMatchObject({ tags: ['legacy-tag'] })
   })
 
+  it('keeps a legacy KV link on a reserved slug readable and editable', async () => {
+    await clearLinkMigrationState()
+    const link = makeLink('dashboard')
+    await putKvLink(link)
+
+    await runMigration(false)
+
+    expect(await getD1Link(link.slug)).toMatchObject({ slug: link.slug, url: link.url })
+    const query = await fetchWithAuth(`/api/link/query?slug=${link.slug}`)
+    expect(query.status).toBe(200)
+
+    const edit = await putJson('/api/link/edit', { slug: link.slug, url: 'https://example.com/reserved-edit' })
+    expect(edit.status).toBe(201)
+    expect(await getD1Link(link.slug)).toMatchObject({ url: 'https://example.com/reserved-edit' })
+  })
+
   it('does not let a conflicting edit overwrite tags from the successful edit', async () => {
     const link = makeLink()
     expect((await postJson('/api/link/create', link)).status).toBe(201)
@@ -421,6 +437,33 @@ describe('d1 link integration', () => {
     expect(activeList.links).toEqual([])
     expect((await fetch(`/${link.slug}`, { redirect: 'manual' })).status).toBe(404)
     expect(await getStoredLink(link.slug)).toBeNull()
+  })
+
+  it('exports the effective expiration when the stored link has none', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const link = makeLink()
+    await insertD1Link(link, now - 60)
+
+    const exported = await (await fetchWithAuth('/api/link/export')).json() as { links: Link[] }
+    expect(exported.links.find(item => item.slug === link.slug)?.expiration).toBe(now - 60)
+  })
+
+  it('exports links filtered by expiration status', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const active = makeLink()
+    const expired = makeLink()
+    await insertD1Link(active, null)
+    await insertD1Link(expired, now - 60)
+
+    const activeExport = await (await fetchWithAuth('/api/link/export?status=active')).json() as { links: Link[] }
+    const activeSlugs = activeExport.links.map(item => item.slug)
+    expect(activeSlugs).toContain(active.slug)
+    expect(activeSlugs).not.toContain(expired.slug)
+
+    const expiredExport = await (await fetchWithAuth('/api/link/export?status=expired')).json() as { links: Link[] }
+    const expiredSlugs = expiredExport.links.map(item => item.slug)
+    expect(expiredSlugs).toContain(expired.slug)
+    expect(expiredSlugs).not.toContain(active.slug)
   })
 
   it('preserves native KV expiration when migrating to D1', async () => {

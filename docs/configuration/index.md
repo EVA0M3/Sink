@@ -33,7 +33,7 @@ Names starting with `DEPLOY_*` are only for connecting resources during deploy. 
 
 A **binding** connects a Cloudflare product to Sink under a fixed name.
 
-| Binding     | Required?   | Plain meaning                                                                                                       |
+| Binding     | Required?   | Description                                                                                                         |
 | ----------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
 | `DB`        | Yes         | D1 database — stores links                                                                                          |
 | `KV`        | Yes         | Fast cache for redirects (+ storage-ready flag)                                                                     |
@@ -47,7 +47,7 @@ Analytics is optional. Without it, short links and the dashboard still work; cha
 ## Required
 
 ::: warning `NUXT_SITE_TOKEN`
-Set this yourself. It is the **dashboard login password** and the **API password**. At least 8 characters; longer is better. Keep it stable.
+Set this yourself. It is the **dashboard login password** and the **API password**. At least 8 characters without whitespace; longer is better. Keep it stable.
 
 If you leave it empty, Sink may invent a random password at build time that can change on the next deploy.
 :::
@@ -71,11 +71,20 @@ Also bind `ANALYTICS`. Add `R2` for [backups](/features/backups), `AI` for [Work
 
 On Workers, set the same value in Builds and runtime. On Pages, set once, then redeploy.
 
-| Variable                          | Default | Purpose                                                   |
-| --------------------------------- | ------- | --------------------------------------------------------- |
-| `NUXT_PUBLIC_PREVIEW_MODE`        | empty   | `true` = demo mode (links last 5 minutes)                 |
-| `NUXT_PUBLIC_SLUG_DEFAULT_LENGTH` | `6`     | Length of auto-generated short codes                      |
-| `NUXT_PUBLIC_KV_BATCH_LIMIT`      | `50`    | Export page size; import accepts at most half per request |
+| Variable                          | Default | Purpose                                                                                            |
+| --------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `NUXT_PUBLIC_PREVIEW_MODE`        | empty   | `true` = demo mode (links last 5 minutes)                                                          |
+| `NUXT_PUBLIC_SLUG_DEFAULT_LENGTH` | `6`     | Length of auto-generated short codes                                                               |
+| `NUXT_PUBLIC_KV_BATCH_LIMIT`      | `50`    | Export page size; import accepts at most half per request                                          |
+| `NUXT_PUBLIC_MAX_URL_LENGTH`      | `16384` | Maximum target URL length in characters (256-24000)                                                |
+| `NUXT_PUBLIC_HOME_URL`            | empty   | Non-empty URL redirects `/`; empty shows the Sink homepage                                         |
+| `NUXT_PUBLIC_LINK_PROXY_ENABLED`  | `false` | `true` allows links to opt into reverse proxy mode; off, stored proxy links fall back to redirects |
+
+`NUXT_PUBLIC_*` values are baked into the built UI and read at runtime, so changes need a rebuild before the client picks them up.
+
+`NUXT_HOME_URL` is the deprecated name of `NUXT_PUBLIC_HOME_URL`. It still works, but rename it when you next change your settings.
+
+Click analytics store the target URL in Workers Analytics Engine, which limits all blobs in a data point to 16 KB in total. When the URL plus the other click fields (user agent, referer, and so on) exceeds that size, which is possible near the default 16384-character limit, the click still redirects but is missing from analytics. Lower `NUXT_PUBLIC_MAX_URL_LENGTH` if complete analytics matter more than long URLs.
 
 ## Optional
 
@@ -92,7 +101,6 @@ On Workers, set the same value in Builds and runtime. On Pages, set once, then r
 
 | Variable                                            | Purpose                                                                  |
 | --------------------------------------------------- | ------------------------------------------------------------------------ |
-| `NUXT_HOME_URL`                                     | Non-empty URL redirects `/`; empty shows the Sink homepage               |
 | `NUXT_NOT_FOUND_REDIRECT`                           | Where to send unknown short codes (**always HTTP 302**)                  |
 | `NUXT_CF_ACCESS_TEAM_DOMAIN` + `NUXT_CF_ACCESS_AUD` | Both set → enable [Cloudflare Access](./cloudflare-access)               |
 | `NUXT_SAFE_BROWSING_DOH`                            | DNS-over-HTTPS URL used to check unsafe domains when `unsafe` is not set |
@@ -100,6 +108,12 @@ On Workers, set the same value in Builds and runtime. On Pages, set once, then r
 | `NUXT_WEBHOOK_SECRET`                               | Optional signing secret starting with `whsec_`                           |
 
 Safe browsing example: Cloudflare Family DNS `https://family.cloudflare-dns.com/dns-query`. See also [Link Features](/features/links).
+
+### Expired link retention
+
+Set runtime variable `NUXT_EXPIRED_LINK_RETENTION_DAYS=30` to permanently delete D1 links once they have been expired for 30 days. Unset or empty disables cleanup. Only non-negative integers are accepted; `0` deletes expired links on the next run. Invalid values skip cleanup and log a warning.
+
+Cleanup requires a completed KV-to-D1 migration and Workers cron (daily at **00:00 UTC** in this repository). It runs independently of `NUXT_DISABLE_AUTO_BACKUP` and does not require R2. Pages does not run automatic cleanup. Existing R2 backups are retained.
 
 ## Advanced defaults (usually leave alone)
 
